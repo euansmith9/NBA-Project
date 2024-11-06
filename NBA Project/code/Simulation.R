@@ -2,6 +2,7 @@ setwd("~/Library/CloudStorage/OneDrive-UniversityofStrathclyde/Fourth Year/MM401
 
 library(tidyverse)
 library(ggplot2)
+library(patchwork)
 
 data <- read.csv("finaldata.csv")
 
@@ -238,9 +239,11 @@ full_simulation <- function(test, elo_ratings_initial, logmodel5, n) {
 set.seed(123)
 
 n <- 1000
-sim <- full_simulation(test_data, elo_ratings_initial, logmodel5, n)
+sim <- full_simulation(test, elo_ratings_initial, logmodel5, n)
 
 combined_outcomes <- do.call(rbind, sim)
+
+length(combined_outcomes$home_team[combined_outcomes$home_team == 'PHO'])
 
 simhome_outcomes <- combined_outcomes %>%
   group_by(home_team) %>%
@@ -262,8 +265,8 @@ simcombined_outcomes <- full_join(simhome_outcomes, simaway_outcomes, by = "team
   dplyr::select(teamAbbr, SimulatedWins, SimulatedLosses)
 
 simulated_standings <- full_join(actual_standings, simcombined_outcomes, by = "teamAbbr") %>%
-  mutate(ActualWins = ActualWins*1000,
-         ActualLosses = ActualLosses*1000) %>%
+  mutate(ActualWins = ActualWins*n,
+         ActualLosses = ActualLosses*n) %>%
   mutate(SimTotalWins = ActualWins + SimulatedWins,
          SimTotalLosses = ActualLosses + SimulatedLosses) %>%
   arrange(desc(SimTotalWins), SimTotalLosses)
@@ -274,11 +277,6 @@ view(simulated_standings)
 
 sum(simulated_standings$SimTotalWins)
 sum(simulated_standings$SimTotalLosses)
-
-simulated_team_outcomes <- simulated_outcomes %>%
-  group_by(Team) %>%
-  summarise(SimulatedWins = sum(Result == "Win"),
-            SimulatedLosses = sum(Result == "Loss"))
 
 team_total_winsdal <- numeric(length = length(sim))
 
@@ -296,7 +294,6 @@ p1 <- ggplot(data.frame(TotalWins = team_total_winsdal), aes(x = TotalWins)) +
   labs(title = "Density of Simulated Wins for DAL",
        x = "Simulated Wins",
        y = "Density") +
-  xlim(c(10, 30)) +
   theme_minimal()
 
 team_total_winsGSW <- numeric(length = length(sim))
@@ -315,7 +312,6 @@ p2 <- ggplot(data.frame(TotalWins = team_total_winsGSW), aes(x = TotalWins)) +
   labs(title = "Density of Simulated Wins for GSW",
        x = "Simulated Wins",
        y = "Density") +
-  xlim(c(10, 30)) +
   theme_minimal()
 
 team_total_winsPHO <- numeric(length = length(sim))
@@ -334,7 +330,6 @@ p3 <- ggplot(data.frame(TotalWins = team_total_winsPHO), aes(x = TotalWins)) +
   labs(title = "Density of Simulated Wins for PHO",
        x = "Simulated Wins",
        y = "Density") +
-  xlim(c(10, 30)) +
   theme_minimal()
 
 p1/p2/p3
