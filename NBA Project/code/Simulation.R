@@ -1,5 +1,8 @@
 setwd("~/Library/CloudStorage/OneDrive-UniversityofStrathclyde/Fourth Year/MM401/NBA Project/data")
 
+library(tidyverse)
+library(ggplot2)
+
 data <- read.csv("finaldata.csv")
 
 data$teamRslt <- factor(data$teamRslt)
@@ -175,26 +178,56 @@ full_simulation <- function(test, elo_ratings_initial, logmodel5, n) {
   all_outcomes <- list()
   
   for (i in 1:n) {
+    # Reset Elo ratings at the beginning of each simulation run
     elo_ratings <- elo_ratings_initial
     outcomes <- vector("list", length = nrow(test))
     
     for (j in 1:nrow(test)) {
+      # Extract game data
       game <- test[j, ]
       home_team <- game$teamAbbr
       away_team <- game$opptAbbr
       
-      prediction_data <- game
-      prediction_data$teamEloPre <- elo_ratings[home_team]
-      prediction_data$opptEloPre <- elo_ratings[away_team]
+      # Get the current Elo ratings for the teams
+      home_team_elo <- elo_ratings[home_team]
+      away_team_elo <- elo_ratings[away_team]
       
+      # Prepare prediction data with Elo ratings
+      prediction_data <- game
+      prediction_data$teamEloPre <- home_team_elo
+      prediction_data$opptEloPre <- away_team_elo
+      
+      # Predict the probability of the home team winning
       predicted_prob <- predict(logmodel5, newdata = prediction_data, type = "response")
       simulated_result <- rbinom(1, size = 1, prob = predicted_prob)
       
-      outcomes[[j]] <- list(home_team = home_team, away_team = away_team,
-                                home_result = ifelse(simulated_result == 1, "Win", "Loss"),
-                                away_result = ifelse(simulated_result == 1, "Loss", "Win"))
+      # Update Elo ratings based on the simulated game result
+      if (simulated_result == 1) {
+        # Home team wins
+        updated_ratings <- update_elo(home_team_elo, away_team_elo)
+        elo_ratings[home_team] <- updated_ratings$new_winner_elo
+        elo_ratings[away_team] <- updated_ratings$new_loser_elo
+        result_home_team <- "Win"
+        result_away_team <- "Loss"
+      } else {
+        # Away team wins
+        updated_ratings <- update_elo(away_team_elo, home_team_elo)
+        elo_ratings[away_team] <- updated_ratings$new_winner_elo
+        elo_ratings[home_team] <- updated_ratings$new_loser_elo
+        result_home_team <- "Loss"
+        result_away_team <- "Win"
+      }
+      
+      # Store the outcome for this game
+      outcomes[[j]] <- list(
+        home_team = home_team,
+        away_team = away_team,
+        home_result = result_home_team,
+        away_result = result_away_team
+      )
     }
     
+    # Combine all game outcomes for this simulation run into a data frame
     all_outcomes[[i]] <- do.call(rbind, lapply(outcomes, data.frame))
   }
   
